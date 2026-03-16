@@ -6,10 +6,10 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-DEXCOM_SERVER = os.environ.get("DEXCOM_SERVER", "share2.dexcom.com")  # or share1 for non-US
+DEXCOM_SERVER = os.environ.get("DEXCOM_SERVER", "share2.dexcom.com")
 USERNAME = os.environ.get("DEXCOM_USERNAME")
 PASSWORD = os.environ.get("DEXCOM_PASSWORD")
-APPLICATION_ID = "d89443d2-327c-4a6f-89e5-496bbb0317db"  # official Dexcom Share app ID
+APPLICATION_ID = "d89443d2-327c-4a6f-89e5-496bbb0317db"
 
 TREND_ARROWS = {
     "None": "?",
@@ -32,6 +32,7 @@ def get_session_id():
         "applicationId": APPLICATION_ID,
     }
     r = requests.post(url, json=payload, timeout=10)
+    print(f"LOGIN status={r.status_code} body={r.text[:500]}", flush=True)
     r.raise_for_status()
     return r.json()
 
@@ -39,6 +40,7 @@ def get_latest_glucose(session_id):
     url = f"https://{DEXCOM_SERVER}/ShareWebServices/Services/Publisher/ReadPublisherLatestGlucoseValues"
     params = {"sessionId": session_id, "minutes": 10, "maxCount": 1}
     r = requests.post(url, json=params, timeout=10)
+    print(f"READINGS status={r.status_code} body={r.text[:500]}", flush=True)
     r.raise_for_status()
     readings = r.json()
     if not readings:
@@ -61,7 +63,7 @@ def bg():
             return jsonify({"error": "No recent readings"}), 404
         return jsonify(data)
     except requests.HTTPError as e:
-        return jsonify({"error": f"Dexcom error: {e.response.status_code}"}), 502
+        return jsonify({"error": f"Dexcom HTTP error: {e.response.status_code}", "body": e.response.text[:300]}), 502
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
