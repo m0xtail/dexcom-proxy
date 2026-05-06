@@ -63,15 +63,14 @@ def get_session_id_by_account_id(account_id):
     r.raise_for_status()
     return r.json()
 
-def get_latest_glucose(session_id):
+def get_latest_glucose(session_id, count=8):
     url = f"https://{DEXCOM_SERVER}/ShareWebServices/Services/Publisher/ReadPublisherLatestGlucoseValues"
-    r = requests.post(url, json={"sessionId": session_id, "minutes": 10, "maxCount": 1}, timeout=10)
+    r = requests.post(url, json={"sessionId": session_id, "minutes": 60, "maxCount": count}, timeout=10)
     r.raise_for_status()
     readings = r.json()
     if not readings:
         return None
-    reading = readings[0]
-    return {"value": reading["Value"], "trend": TREND_ARROWS.get(reading["Trend"], "?"), "trend_name": reading["Trend"]}
+    return [{"value": r["Value"], "trend": TREND_ARROWS.get(r["Trend"], "?"), "trend_name": r["Trend"]} for r in readings]
 
 @app.route("/bg")
 def bg():
@@ -85,7 +84,7 @@ def bg():
         data = get_latest_glucose(session_id)
         if not data:
             return jsonify({"error": "No recent readings"}), 404
-        return jsonify(data)
+        return jsonify({"readings": data})
     except requests.HTTPError as e:
         return jsonify({"error": f"Dexcom HTTP error: {e.response.status_code}"}), 502
     except Exception as e:
